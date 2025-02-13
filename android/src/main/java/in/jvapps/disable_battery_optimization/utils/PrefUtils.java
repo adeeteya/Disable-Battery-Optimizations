@@ -1,105 +1,77 @@
 package in.jvapps.disable_battery_optimization.utils;
 
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
-import java.lang.ref.WeakReference;
+import androidx.datastore.core.DataStore;
+import androidx.datastore.preferences.core.BooleanPreferencesKey;
+import androidx.datastore.preferences.core.DoublePreferencesKey;
+import androidx.datastore.preferences.core.FloatPreferencesKey;
+import androidx.datastore.preferences.core.IntPreferencesKey;
+import androidx.datastore.preferences.core.LongPreferencesKey;
+import androidx.datastore.preferences.core.Preferences;
+import androidx.datastore.preferences.core.PreferencesKeys;
+import androidx.datastore.preferences.core.StringPreferencesKey;
+import androidx.datastore.preferences.preferencesDataStore;
+
+import kotlinx.coroutines.flow.Flow;
+import kotlinx.coroutines.flow.catch;
+import kotlinx.coroutines.flow.map;
+
+import java.io.IOException;
 import java.util.Objects;
 
 public class PrefUtils {
+    private static final String DATASTORE_NAME = "app_prefs";
+    private static final Context.preferencesDataStore dataStore = new Context.preferencesDataStore(DATASTORE_NAME);
 
-    /**
-     * Called to save supplied value in shared preferences against given key.
-     *
-     * @param context Context of caller activity
-     * @param key     Key of value to save against
-     * @param value   Value to save
-     */
     public static void saveToPrefs(Context context, String key, Object value) {
-        WeakReference<Context> contextWeakReference = new WeakReference<>(context);
-        if (contextWeakReference.get() != null) {
-            SharedPreferences prefs =
-                    PreferenceManager.getDefaultSharedPreferences(contextWeakReference.get());
-            final SharedPreferences.Editor editor = prefs.edit();
-            if (value instanceof Integer) {
-                editor.putInt(key, (Integer) value);
-            } else if (value instanceof String) {
-                editor.putString(key, value.toString());
-            } else if (value instanceof Boolean) {
-                editor.putBoolean(key, (Boolean) value);
-            } else if (value instanceof Long) {
-                editor.putLong(key, (Long) value);
-            } else if (value instanceof Float) {
-                editor.putFloat(key, (Float) value);
-            } else if (value instanceof Double) {
-                editor.putLong(key, Double.doubleToRawLongBits((double) value));
-            }
-            editor.apply();
-        }
+        DataStore<Preferences> dataStore = context.getDataStore();
+        Preferences.Key<Object> prefKey = getKey(key, value);
+        
+        context.getDataStore().edit(prefs -> {
+            prefs.set(prefKey, value);
+        });
     }
 
-    /**
-     * Called to retrieve required value from shared preferences, identified by given key.
-     * Default value will be returned of no value found or error occurred.
-     *
-     * @param context      Context of caller activity
-     * @param key          Key to find value against
-     * @param defaultValue Value to return if no data found against given key
-     * @return Return the value found against given key, default if not found or any error occurs
-     */
-    public static Object getFromPrefs(Context context, String key, Object defaultValue) {
-        WeakReference<Context> contextWeakReference = new WeakReference<>(context);
-        if (contextWeakReference.get() != null) {
-            SharedPreferences sharedPrefs =
-                    PreferenceManager.getDefaultSharedPreferences(contextWeakReference.get());
-            try {
-                if (defaultValue instanceof String) {
-                    return sharedPrefs.getString(key, defaultValue.toString());
-                } else if (defaultValue instanceof Integer) {
-                    return sharedPrefs.getInt(key, (Integer) defaultValue);
-                } else if (defaultValue instanceof Boolean) {
-                    return sharedPrefs.getBoolean(key, (Boolean) defaultValue);
-                } else if (defaultValue instanceof Long) {
-                    return sharedPrefs.getLong(key, (Long) defaultValue);
-                } else if (defaultValue instanceof Float) {
-                    return sharedPrefs.getFloat(key, (Float) defaultValue);
-                } else if (defaultValue instanceof Double) {
-                    return Double.longBitsToDouble(sharedPrefs.getLong(key, Double.doubleToLongBits((double) defaultValue)));
+    public static Flow<Object> getFromPrefs(Context context, String key, Object defaultValue) {
+        DataStore<Preferences> dataStore = context.getDataStore();
+        Preferences.Key<Object> prefKey = getKey(key, defaultValue);
+
+        return dataStore.data
+            .catch(exception -> {
+                if (exception instanceof IOException) {
+                    Log.e("PrefUtils", Objects.requireNonNull(exception.getMessage()));
+                    emit(emptyPreferences());
+                } else {
+                    throw exception;
                 }
-            } catch (Exception e) {
-                Log.e("Exception", Objects.requireNonNull(e.getMessage()));
-                return defaultValue;
-            }
-        }
-        return defaultValue;
+            })
+            .map(prefs -> prefs.getOrDefault(prefKey, defaultValue));
     }
 
-    /**
-     * @param context Context of caller activity
-     * @param key     Key to delete from SharedPreferences
-     */
     public static void removeFromPrefs(Context context, String key) {
-        WeakReference<Context> contextWeakReference = new WeakReference<>(context);
-        if (contextWeakReference.get() != null) {
-            SharedPreferences prefs =
-                    PreferenceManager.getDefaultSharedPreferences(contextWeakReference.get());
-            final SharedPreferences.Editor editor = prefs.edit();
-            editor.remove(key);
-            editor.apply();
-        }
+        DataStore<Preferences> dataStore = context.getDataStore();
+        
+        dataStore.edit(prefs -> {
+            prefs.remove(PreferencesKeys.stringKey(key));
+        });
     }
 
-    @SuppressWarnings("unused")
-    public static boolean hasKey(Context context, String key) {
-        WeakReference<Context> contextWeakReference = new WeakReference<>(context);
-        if (contextWeakReference.get() != null) {
-            SharedPreferences prefs =
-                    PreferenceManager.getDefaultSharedPreferences(contextWeakReference.get());
-            return prefs.contains(key);
+    private static Preferences.Key<Object> getKey(String key, Object value) {
+        if (value instanceof Integer) {
+            return (Preferences.Key<Object>) IntPreferencesKey(key);
+        } else if (value instanceof String) {
+            return (Preferences.Key<Object>) StringPreferencesKey(key);
+        } else if (value instanceof Boolean) {
+            return (Preferences.Key<Object>) BooleanPreferencesKey(key);
+        } else if (value instanceof Long) {
+            return (Preferences.Key<Object>) LongPreferencesKey(key);
+        } else if (value instanceof Float) {
+            return (Preferences.Key<Object>) FloatPreferencesKey(key);
+        } else if (value instanceof Double) {
+            return (Preferences.Key<Object>) DoublePreferencesKey(key);
         }
-        return false;
+        throw new IllegalArgumentException("Unsupported data type");
     }
-
 }
