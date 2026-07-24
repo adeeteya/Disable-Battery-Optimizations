@@ -2,6 +2,25 @@
 
 Flutter plugin to check and disable battery optimizations. Also shows custom steps to disable the **manufacturer specific** optimizations on devices like mi, xiaomi, samsung, oppo, huawei, oneplus etc
 
+### Android build requirements
+
+Version 2.0.0 requires Flutter 3.44 or newer and uses its Android toolchain:
+
+- Android Gradle Plugin 9.0.1
+- Gradle 9.1
+- Java 17
+- compile SDK 36
+- min SDK 24
+
+Flutter 3.44's AGP 9 project template still opts out of AGP's new DSL and
+built-in Kotlin while Flutter's Gradle plugin migration is in progress. If an
+existing application has upgraded to AGP 9, add these entries to the
+application's `android/gradle.properties`:
+
+```properties
+android.newDsl=false
+android.builtInKotlin=false
+```
 
 ------------
 

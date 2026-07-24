@@ -1,3 +1,10 @@
+## 2.0.0
+
+- Migrate Android builds to AGP 9.0.1 and Gradle 9.1.
+- Replace JCenter and legacy Flutter Gradle integration.
+- Update the Android baseline to compile SDK 36, Java 17, and min SDK 24.
+- Require Flutter 3.44 and Dart 3.12.
+
 ## 1.1.1
 
 - Bump to Dart3 + Android gradle namespace fix (PR #13)
